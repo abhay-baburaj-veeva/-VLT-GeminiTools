@@ -1,0 +1,17 @@
+{
+    "compilerOptions": {
+        "outDir": "./dist/",
+        "sourceMap": true,
+        "strict": true,
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "skipLibCheck": true,
+        "jsx": "react-jsx",
+        "target": "es6",
+        "allowJs": true,
+        "types": ["vitest/globals", "chrome"],
+        "lib": ["ES2020", "DOM", "DOM.Iterable"]
+    },
+    "include": ["./src/"],
+    "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.spec.ts", "src/**/*.spec.tsx"]
+}

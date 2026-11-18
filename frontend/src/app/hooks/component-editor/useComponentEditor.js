@@ -1,0 +1,185 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+    executeMdlScript,
+    executeMdlScriptAsync,
+    retrieveAsyncMdlScriptResults,
+    retrieveComponentRecordMdl,
+} from '../../services/ApiService';
+
+export default function useComponentEditor(defaultComponent) {
+    const [code, setCode] = useState('Select a component record from the tree to view its MDL code');
+    const [selectedComponent, setSelectedComponent] = useState(defaultComponent || '');
+    const [consoleOutput, setConsoleOutput] = useState();
+    const [isExecutingApiCall, setIsExecutingApiCall] = useState(false);
+    const [isExecutingMdl, setIsExecutingMdl] = useState(false);
+    const [asyncJobId, setAsyncJobId] = useState('');
+    const [showOutstandingAsyncJobWarning, setShowOutstandingAsyncJobWarning] = useState(false);
+    const [selectedComponentPendingConfirmation, setSelectedComponentPendingConfirmation] = useState('');
+    const [displayComponentTree, setDisplayComponentTree] = useState(true);
+    const [sidePanelCollapsed, setSidePanelCollapsed] = useState(defaultComponent ? true : false);
+    const [mdlTelemetryData, setMdlTelemetryData] = useState({});
+
+    const componentDirectoryPanelRef = useRef(null);
+
+    /**
+     * Retrieve MDL code for current component record
+     */
+    const retrieveCode = useCallback(
+        async (component) => {
+            const { response, responseTelemetry } = await retrieveComponentRecordMdl(component || selectedComponent);
+
+            if (typeof response === 'string') {
+                setCode(response);
+            } else {
+                setConsoleOutput(response);
+                setCode('Error. Could not retrieve MDL code for this component.');
+            }
+
+            setMdlTelemetryData(responseTelemetry ? responseTelemetry : {});
+        },
+        [selectedComponent],
+    );
+
+    /**
+     * Execute current MDL code
+     */
+    const executeMdl = async () => {
+        setIsExecutingMdl(true);
+        setIsExecutingApiCall(true);
+        const { response, responseTelemetry } = await executeMdlScript(code);
+        setIsExecutingApiCall(false);
+        setIsExecutingMdl(false);
+
+        // Display the result in console output
+        if (response) {
+            setConsoleOutput(response);
+        }
+
+        setMdlTelemetryData(responseTelemetry ? responseTelemetry : {});
+    };
+
+    /**
+     * Execute current MDL code (async)
+     */
+    const executeMdlAsync = async () => {
+        setIsExecutingApiCall(true);
+        const { response, responseTelemetry } = await executeMdlScriptAsync(code);
+        setIsExecutingApiCall(false);
+        setConsoleOutput(response);
+
+        // If successful, store the job id
+        if (response?.responseStatus === 'SUCCESS' && response?.job_id) {
+            setAsyncJobId(response.job_id);
+        }
+
+        setMdlTelemetryData(responseTelemetry ? responseTelemetry : {});
+    };
+
+    /**
+     * Retrieve results of current async MDL job
+     */
+    const retrieveMdlAsyncResults = async () => {
+        setIsExecutingApiCall(true);
+        const { response, responseTelemetry } = await retrieveAsyncMdlScriptResults(asyncJobId);
+        setIsExecutingApiCall(false);
+        setConsoleOutput(response);
+
+        // If successful, we no longer need the current async job id
+        if (response?.responseStatus === 'SUCCESS') {
+            setAsyncJobId('');
+        }
+
+        setMdlTelemetryData(responseTelemetry ? responseTelemetry : {});
+    };
+
+    // Store the currently selected component in state
+    const onSelect = (selectedKey) => {
+        // Warn user if there's an outstanding Async request
+        if (asyncJobId) {
+            if (selectedComponentPendingConfirmation != selectedKey) {
+                setSelectedComponentPendingConfirmation(selectedKey);
+                setShowOutstandingAsyncJobWarning(true);
+            }
+        } else {
+            updateSelectedComponent(selectedKey);
+        }
+    };
+
+    const updateSelectedComponent = (component) => {
+        // If changing components, clear outstanding async jobs
+        setAsyncJobId('');
+        setSelectedComponent(component);
+    };
+
+    const closeOutstandingAsyncJobWarning = () => {
+        setShowOutstandingAsyncJobWarning(false);
+        setSelectedComponentPendingConfirmation('');
+    };
+
+    const toggleComponentTree = () => {
+        if (displayComponentTree) {
+            setSidePanelCollapsed(true);
+        } else {
+            setSidePanelCollapsed(false);
+        }
+
+        setDisplayComponentTree(!displayComponentTree);
+    };
+
+    const getComponentMdlHandler = (userInputComponent) => {
+        if (userInputComponent) {
+            // Remove leading & trailing spaces
+            // Replace any other spaces with periods, so users can input components naturally "Object address__c"
+            const cleanedUserInputComponent = userInputComponent?.trim()?.replaceAll(' ', '.');
+
+            setCode('');
+            setConsoleOutput();
+
+            retrieveCode(cleanedUserInputComponent);
+        }
+    };
+
+    useEffect(() => {
+        if (sidePanelCollapsed) {
+            componentDirectoryPanelRef.current?.collapse();
+            setDisplayComponentTree(false);
+        } else {
+            componentDirectoryPanelRef.current?.expand();
+        }
+    }, [sidePanelCollapsed]);
+
+    // When a new component record is selected, clear out the previously-selected code/console and fetch the current code
+    useEffect(() => {
+        if (selectedComponent) {
+            setCode('');
+            setConsoleOutput();
+            retrieveCode();
+        }
+    }, [selectedComponent, retrieveCode]);
+
+    return {
+        code,
+        setCode,
+        selectedComponent,
+        setSelectedComponent,
+        consoleOutput,
+        getComponentMdlHandler,
+        executeMdl,
+        executeMdlAsync,
+        retrieveMdlAsyncResults,
+        onSelect,
+        updateSelectedComponent,
+        closeOutstandingAsyncJobWarning,
+        toggleComponentTree,
+        mdlTelemetryData,
+        isExecutingApiCall,
+        isExecutingMdl,
+        asyncJobId,
+        showOutstandingAsyncJobWarning,
+        selectedComponentPendingConfirmation,
+        displayComponentTree,
+        sidePanelCollapsed,
+        setSidePanelCollapsed,
+        componentDirectoryPanelRef,
+    };
+}

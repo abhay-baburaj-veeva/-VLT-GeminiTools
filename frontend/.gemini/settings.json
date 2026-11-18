@@ -1,0 +1,16 @@
+{
+  "context": {
+    "fileName": [
+      "AGENTS.md",
+      "GEMINI.md"
+    ],
+    "includeDirectories": [
+      ".agents/"
+    ]
+  },
+  "mcpServers": {
+    "vault-developer-mcp": {
+      "url": "https://docs.veevavault.dev/mcp"
+    }
+  }
+}

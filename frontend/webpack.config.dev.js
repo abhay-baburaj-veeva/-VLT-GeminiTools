@@ -1,0 +1,78 @@
+const path = require('path');
+const CopyPlugin = require('copy-webpack-plugin');
+const dotenv = require('dotenv');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
+const webpack = require('webpack');
+
+dotenv.config();
+
+module.exports = {
+    mode: 'development',
+    devtool: 'inline-source-map',
+    entry: {
+        index: path.resolve('./src/app/index.jsx'),
+        background: path.resolve('./src/background/background.js'),
+    },
+    module: {
+        rules: [
+            {
+                test: /\.(js|jsx)$/,
+                exclude: /node_modules/,
+                loader: 'babel-loader',
+                options: {
+                    presets: ['@babel/env', ['@babel/preset-react', { runtime: 'automatic' }]],
+                },
+            },
+            {
+                test: /\.(ts|tsx)$/,
+                exclude: /node_modules/,
+                loader: 'ts-loader',
+            },
+            {
+                use: ['style-loader', 'css-loader'],
+                test: /\.css$/,
+            },
+            {
+                test: /\.(png|jpe?g|gif)$/i,
+                loader: 'file-loader',
+                options: {
+                    outputPath: 'images',
+                },
+            },
+            { enforce: 'pre', test: /\.js$/, exclude: /node_modules/, loader: 'source-map-loader' },
+        ],
+    },
+    plugins: [
+        new CopyPlugin({
+            patterns: [
+                {
+                    from: path.resolve('src/manifest.json'),
+                    to: path.resolve('dist'),
+                },
+                {
+                    from: path.resolve('src/images/veeva-logo.png'),
+                    to: path.resolve('dist'),
+                },
+            ],
+        }),
+        new HtmlWebpackPlugin({
+            title: 'Vault Toolbox',
+            filename: 'index.html',
+            chunks: ['index'],
+        }),
+        new webpack.DefinePlugin({
+            'process.env': JSON.stringify(process.env),
+            'process.env.IS_DEV_BUILD': JSON.stringify('true'),
+        }),
+        new MonacoWebpackPlugin({
+            languages: ['javascript'],
+        }),
+    ],
+    resolve: {
+        extensions: ['*', '.js', '.jsx', '.ts', '.tsx'],
+    },
+    output: {
+        filename: '[name].js',
+    },
+};
